@@ -7,7 +7,7 @@
 #include <cmath>
 #include <cstring>
 
-#define _WSL2
+#define OSX
 
 #ifdef _WIN32
 #include <windows.h>
@@ -80,9 +80,26 @@ public:
 	}
 };
 
+class Shading
+{
+public:
+	enum SHADING_TYPE
+	{
+		PHONG,
+		TOON
+	};
+
+	SHADING_TYPE type;
+
+	Shading() : type(PHONG) {}
+};
+
 // Material and lights
 Material material;
 vector<Light> lights;
+
+// Shading Configuration
+Shading shadingMode;
 
 //****************************************************
 // Global Variables
@@ -124,10 +141,23 @@ void setPixel(int x, int y, GLfloat r, GLfloat g, GLfloat b)
 	glVertex2f(x + 0.5, y + 0.5);
 }
 
+float toonIntensity(float intensity)
+{
+	if (intensity > 0.95)
+		intensity = 1.0; // Highlight
+	else if (intensity > 0.5)
+		intensity = 0.7; // Lit
+	else if (intensity > 0.25)
+		intensity = 0.4; // Shadow
+	else
+		intensity = 0.2; // Deep Shadow
+	return intensity;
+}
+
 vec3 computeShadedColor(vec3 pos)
 {
 	/*
-	Simple Phon Illumination equation
+	Simple Phon Illumination equation (Toon Addon)
 	Ambient + Diffuse + Spectural
 	*/
 
@@ -142,6 +172,7 @@ vec3 computeShadedColor(vec3 pos)
 		vec3 specural;
 		vec3 normPos = pos.normalize();
 		vec3 normLight;
+
 		if (lights[i].type == Light::DIRECTIONAL_LIGHT)
 			normLight = -lights[i].posDir.normalize();
 		else
@@ -149,9 +180,13 @@ vec3 computeShadedColor(vec3 pos)
 
 		// Diffuse (Dynamic Grayscale)
 		float NdotL;
+		float diffuseIntensity;
 
 		NdotL = max(0.0f, normPos * normLight);
-		diffuse = prod(material.kd, lights[i].color) * NdotL;
+		diffuseIntensity = NdotL;
+		if (shadingMode.type == Shading::TOON)
+			diffuseIntensity = toonIntensity(diffuseIntensity);
+		diffuse = prod(material.kd, lights[i].color) * diffuseIntensity;
 
 		// Specural (Color)
 		float Specular;
@@ -294,6 +329,19 @@ void parseArguments(int argc, char *argv[])
 			}
 			lights.push_back(light);
 			i += 7;
+		}
+		else if (strcmp(argv[i], "-mode") == 0)
+		{
+			// Shading Mode
+			if (i + 1 < argc && strcmp(argv[i + 1], "toon") == 0)
+			{
+				shadingMode.type = Shading::TOON;
+			}
+			else
+			{
+				shadingMode.type = Shading::PHONG;
+			}
+			i += 2;
 		}
 	}
 }
