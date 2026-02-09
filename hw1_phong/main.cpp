@@ -102,6 +102,10 @@ vector<Light> lights;
 // Shading Configuration
 Shading shadingMode;
 
+// constant factor
+const int toon_color_levels = 12;
+const float toon_scale_factor = 1.f / toon_color_levels;
+
 //****************************************************
 // Global Variables
 //****************************************************
@@ -142,17 +146,9 @@ void setPixel(int x, int y, GLfloat r, GLfloat g, GLfloat b)
   glVertex2f(x + 0.5, y + 0.5);
 }
 
-float toonIntensity(float intensity)
+float toonIntensity(float ldn)
 {
-  if (intensity > 0.95)
-    intensity = 1.0; // Highlight
-  else if (intensity > 0.5)
-    intensity = 0.7; // Lit
-  else if (intensity > 0.25)
-    intensity = 0.4; // Shadow
-  else
-    intensity = 0.2; // Deep Shadow
-  return intensity;
+  return ceil(ldn * toon_color_levels) * toon_scale_factor;
 }
 
 vec3 computeShadedColor(vec3 pos)
@@ -161,7 +157,7 @@ vec3 computeShadedColor(vec3 pos)
   vec3 viewDir(0.f, 0.f, 1.f);
   vec3 finalColor(0.f, 0.f, 0.f);
 
-  for (const auto light : lights)
+  for (const Light light : lights)
   {
     vec3 l;
     if (light.type == Light::DIRECTIONAL_LIGHT)
@@ -183,13 +179,20 @@ vec3 computeShadedColor(vec3 pos)
     // Diffuse
     float ldn = l * n;
     if (ldn > 0)
+    {
+      if (shadingMode.type == Shading::TOON)
+      {
+        ldn = toonIntensity(ldn);
+      }
+
       finalColor += prod(material.kd, light.color) * ldn;
+    }
 
     // Spectural
     vec3 r;
     r = 2.f * ldn * n - l;
     float rdv = r * viewDir;
-    if (rdv > 0)
+    if (rdv > 0 && (shadingMode.type != Shading::TOON))
       finalColor += prod(material.ks, light.color) * pow(rdv, material.sp);
   }
 
