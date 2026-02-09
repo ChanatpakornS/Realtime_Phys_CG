@@ -34,6 +34,7 @@ static struct timeval lastTime;
 #endif
 
 #define PI 3.14159265
+#define VIEW_DIR vec3(0.0f, 0.0f, 1.0f)
 
 using namespace std;
 
@@ -46,52 +47,52 @@ class Viewport;
 class Viewport
 {
 public:
-	int w, h; // width and height
+  int w, h; // width and height
 };
 
 class Material
 {
 public:
-	vec3 ka;  // Ambient color
-	vec3 kd;  // Diffuse color
-	vec3 ks;  // Specular color
-	float sp; // Power coefficient of specular
+  vec3 ka;  // Ambient color
+  vec3 kd;  // Diffuse color
+  vec3 ks;  // Specular color
+  float sp; // Power coefficient of specular
 
-	Material() : ka(0.0f), kd(0.0f), ks(0.0f), sp(0.0f)
-	{
-	}
+  Material() : ka(0.0f), kd(0.0f), ks(0.0f), sp(0.0f)
+  {
+  }
 };
 
 class Light
 {
 public:
-	enum LIGHT_TYPE
-	{
-		POINT_LIGHT,
-		DIRECTIONAL_LIGHT
-	};
+  enum LIGHT_TYPE
+  {
+    POINT_LIGHT,
+    DIRECTIONAL_LIGHT
+  };
 
-	vec3 posDir; // Position (Point light) or Direction (Directional light)
-	vec3 color;	 // Color of the light
-	LIGHT_TYPE type;
+  vec3 posDir; // Position (Point light) or Direction (Directional light)
+  vec3 color;  // Color of the light
+  LIGHT_TYPE type;
 
-	Light() : posDir(0.0f), color(0.0f), type(POINT_LIGHT)
-	{
-	}
+  Light() : posDir(0.0f), color(0.0f), type(POINT_LIGHT)
+  {
+  }
 };
 
 class Shading
 {
 public:
-	enum SHADING_TYPE
-	{
-		PHONG,
-		TOON
-	};
+  enum SHADING_TYPE
+  {
+    PHONG,
+    TOON
+  };
 
-	SHADING_TYPE type;
+  SHADING_TYPE type;
 
-	Shading() : type(PHONG) {}
+  Shading() : type(PHONG) {}
 };
 
 // Material and lights
@@ -110,12 +111,12 @@ int drawY = 0;
 
 void initScene()
 {
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // Clear to black, fully transparent
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // Clear to black, fully transparent
 
-	glViewport(0, 0, viewport.w, viewport.h);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluOrtho2D(0, viewport.w, 0, viewport.h);
+  glViewport(0, 0, viewport.w, viewport.h);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  gluOrtho2D(0, viewport.w, 0, viewport.h);
 }
 
 //****************************************************
@@ -123,91 +124,76 @@ void initScene()
 //****************************************************
 void myReshape(int w, int h)
 {
-	viewport.w = w;
-	viewport.h = h;
+  viewport.w = w;
+  viewport.h = h;
 
-	glViewport(0, 0, viewport.w, viewport.h);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluOrtho2D(0, viewport.w, 0, viewport.h);
+  glViewport(0, 0, viewport.w, viewport.h);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  gluOrtho2D(0, viewport.w, 0, viewport.h);
 
-	drawX = (int)(viewport.w * 0.5f);
-	drawY = (int)(viewport.h * 0.5f);
+  drawX = (int)(viewport.w * 0.5f);
+  drawY = (int)(viewport.h * 0.5f);
 }
 
 void setPixel(int x, int y, GLfloat r, GLfloat g, GLfloat b)
 {
-	glColor3f(r, g, b);
-	glVertex2f(x + 0.5, y + 0.5);
+  glColor3f(r, g, b);
+  glVertex2f(x + 0.5, y + 0.5);
 }
 
 float toonIntensity(float intensity)
 {
-	if (intensity > 0.95)
-		intensity = 1.0; // Highlight
-	else if (intensity > 0.5)
-		intensity = 0.7; // Lit
-	else if (intensity > 0.25)
-		intensity = 0.4; // Shadow
-	else
-		intensity = 0.2; // Deep Shadow
-	return intensity;
+  if (intensity > 0.95)
+    intensity = 1.0; // Highlight
+  else if (intensity > 0.5)
+    intensity = 0.7; // Lit
+  else if (intensity > 0.25)
+    intensity = 0.4; // Shadow
+  else
+    intensity = 0.2; // Deep Shadow
+  return intensity;
 }
 
 vec3 computeShadedColor(vec3 pos)
 {
-	/*
-	Simple Phon Illumination equation (Toon Addon)
-	Ambient + Diffuse + Spectural
-	*/
+  // TODO: phong here
+  vec3 viewDir(0.f, 0.f, 1.f);
+  vec3 finalColor(0.f, 0.f, 0.f);
 
-	// Ambient
-	vec3 finalColor = material.ka;
+  for (const auto light : lights)
+  {
+    vec3 l;
+    if (light.type == Light::DIRECTIONAL_LIGHT)
+    {
+      l = light.posDir;
+    }
+    else
+    {
+      l = light.posDir - pos;
+    }
+    l.normalize();
 
-	// SIGMA <Diffuse (Kd * I * (norm(pos) . norm(Lp))) + Spectural (Ks * I * (func(Phon[r, c]^c))>
-	for (int i = 0; i < lights.size(); ++i)
-	{
-		vec3 viewDir = vec3(0.0f, 0.0f, 1.0f);
-		vec3 diffuse;
-		vec3 specural;
-		vec3 normPos = pos.normalize();
-		vec3 normLight;
+    vec3 n = pos;
+    n.normalize();
 
-		if (lights[i].type == Light::DIRECTIONAL_LIGHT)
-			normLight = -lights[i].posDir.normalize();
-		else
-			normLight = (lights[i].posDir - pos).normalize();
+    // Ambient
+    finalColor += prod(material.ka, light.color);
 
-		// Diffuse (Dynamic Grayscale)
-		float NdotL;
-		float diffuseIntensity;
+    // Diffuse
+    float ldn = l * n;
+    if (ldn > 0)
+      finalColor += prod(material.kd, light.color) * ldn;
 
-		NdotL = max(0.0f, normPos * normLight);
-		diffuseIntensity = NdotL;
-		if (shadingMode.type == Shading::TOON)
-			diffuseIntensity = toonIntensity(diffuseIntensity);
-		diffuse = prod(material.kd, lights[i].color) * diffuseIntensity;
+    // Spectural
+    vec3 r;
+    r = 2.f * ldn * n - l;
+    float rdv = r * viewDir;
+    if (rdv > 0)
+      finalColor += prod(material.ks, light.color) * pow(rdv, material.sp);
+  }
 
-		// Specural (Color)
-		float Specular;
-		vec3 R;
-
-		// Phon specural term
-		R = (2.0f * NdotL * normPos) - normLight;
-		Specular = max(0.0f, R * viewDir.normalize());
-		if (Specular > 0.0f)
-		{
-			Specular = pow(Specular, material.sp);
-			specural = prod(material.ks, lights[i].color) * Specular;
-			finalColor += (diffuse + specural);
-		}
-		else
-		{
-			finalColor += diffuse;
-		}
-	}
-
-	return finalColor;
+  return finalColor;
 }
 
 //****************************************************
@@ -216,38 +202,38 @@ vec3 computeShadedColor(vec3 pos)
 void myDisplay()
 {
 
-	glClear(GL_COLOR_BUFFER_BIT); // clear the color buffer
+  glClear(GL_COLOR_BUFFER_BIT); // clear the color buffer
 
-	glMatrixMode(GL_MODELVIEW); // indicate we are specifying camera transformations
-	glLoadIdentity();			// make sure transformation is "zero'd"
+  glMatrixMode(GL_MODELVIEW); // indicate we are specifying camera transformations
+  glLoadIdentity();           // make sure transformation is "zero'd"
 
-	int drawRadius = min(viewport.w, viewport.h) / 2 - 10; // Make it almost fit the entire window
-	float idrawRadius = 1.0f / drawRadius;
-	// Start drawing sphere
-	glBegin(GL_POINTS);
+  int drawRadius = min(viewport.w, viewport.h) / 2 - 10; // Make it almost fit the entire window
+  float idrawRadius = 1.0f / drawRadius;
+  // Start drawing sphere
+  glBegin(GL_POINTS);
 
-	for (int i = -drawRadius; i <= drawRadius; i++)
-	{
-		int width = floor(sqrt((float)(drawRadius * drawRadius - i * i)));
-		for (int j = -width; j <= width; j++)
-		{
+  for (int i = -drawRadius; i <= drawRadius; i++)
+  {
+    int width = floor(sqrt((float)(drawRadius * drawRadius - i * i)));
+    for (int j = -width; j <= width; j++)
+    {
 
-			// Calculate the x, y, z of the surface of the sphere
-			float x = j * idrawRadius;
-			float y = i * idrawRadius;
-			float z = sqrtf(1.0f - x * x - y * y);
-			vec3 pos(x, y, z); // Position on the surface of the sphere
+      // Calculate the x, y, z of the surface of the sphere
+      float x = j * idrawRadius;
+      float y = i * idrawRadius;
+      float z = sqrtf(1.0f - x * x - y * y);
+      vec3 pos(x, y, z); // Position on the surface of the sphere
 
-			vec3 col = computeShadedColor(pos);
+      vec3 col = computeShadedColor(pos);
 
-			// Set the red pixel
-			setPixel(drawX + j, drawY + i, col.r, col.g, col.b);
-		}
-	}
-	glEnd();
+      // Set the red pixel
+      setPixel(drawX + j, drawY + i, col.r, col.g, col.b);
+    }
+  }
+  glEnd();
 
-	glFlush();
-	glutSwapBuffers(); // swap buffers (we earlier set double buffer)
+  glFlush();
+  glutSwapBuffers(); // swap buffers (we earlier set double buffer)
 }
 
 //****************************************************
@@ -256,94 +242,91 @@ void myDisplay()
 
 void myFrameMove()
 {
-	float dt;
-	// Compute the time elapsed since the last time the scence is redrawn
+  // Compute the time elapsed since the last time the scence is redrawn
 #ifdef _WIN32
-	DWORD currentTime = GetTickCount();
-	dt = (float)(currentTime - lastTime) * 0.001f;
+  DWORD currentTime = GetTickCount();
 #else
-	timeval currentTime;
-	gettimeofday(&currentTime, NULL);
-	dt = (float)((currentTime.tv_sec - lastTime.tv_sec) + 1e-6 * (currentTime.tv_usec - lastTime.tv_usec));
+  timeval currentTime;
+  gettimeofday(&currentTime, NULL);
 #endif
 
-	// Store the time
-	lastTime = currentTime;
-	glutPostRedisplay();
+  // Store the time
+  lastTime = currentTime;
+  glutPostRedisplay();
 }
 
 void parseArguments(int argc, char *argv[])
 {
-	int i = 1;
-	while (i < argc)
-	{
-		if (strcmp(argv[i], "-ka") == 0)
-		{
-			// Ambient color
-			material.ka.r = (float)atof(argv[i + 1]);
-			material.ka.g = (float)atof(argv[i + 2]);
-			material.ka.b = (float)atof(argv[i + 3]);
-			i += 4;
-		}
-		else if (strcmp(argv[i], "-kd") == 0)
-		{
-			// Diffuse color
-			material.kd.r = (float)atof(argv[i + 1]);
-			material.kd.g = (float)atof(argv[i + 2]);
-			material.kd.b = (float)atof(argv[i + 3]);
-			i += 4;
-		}
-		else if (strcmp(argv[i], "-ks") == 0)
-		{
-			// Specular color
-			material.ks.r = (float)atof(argv[i + 1]);
-			material.ks.g = (float)atof(argv[i + 2]);
-			material.ks.b = (float)atof(argv[i + 3]);
-			i += 4;
-		}
-		else if (strcmp(argv[i], "-sp") == 0)
-		{
-			// Specular power
-			material.sp = (float)atof(argv[i + 1]);
-			i += 2;
-		}
-		else if ((strcmp(argv[i], "-pl") == 0) || (strcmp(argv[i], "-dl") == 0))
-		{
-			Light light;
-			// Specular color
-			light.posDir.x = (float)atof(argv[i + 1]);
-			light.posDir.y = (float)atof(argv[i + 2]);
-			light.posDir.z = (float)atof(argv[i + 3]);
-			light.color.r = (float)atof(argv[i + 4]);
-			light.color.g = (float)atof(argv[i + 5]);
-			light.color.b = (float)atof(argv[i + 6]);
-			if (strcmp(argv[i], "-pl") == 0)
-			{
-				// Point
-				light.type = Light::POINT_LIGHT;
-			}
-			else
-			{
-				// Directional
-				light.type = Light::DIRECTIONAL_LIGHT;
-			}
-			lights.push_back(light);
-			i += 7;
-		}
-		else if (strcmp(argv[i], "-mode") == 0)
-		{
-			// Shading Mode
-			if (i + 1 < argc && strcmp(argv[i + 1], "toon") == 0)
-			{
-				shadingMode.type = Shading::TOON;
-			}
-			else
-			{
-				shadingMode.type = Shading::PHONG;
-			}
-			i += 2;
-		}
-	}
+  int i = 1;
+  while (i < argc)
+  {
+    if (strcmp(argv[i], "-ka") == 0)
+    {
+      // Ambient color
+      material.ka.r = (float)atof(argv[i + 1]);
+      material.ka.g = (float)atof(argv[i + 2]);
+      material.ka.b = (float)atof(argv[i + 3]);
+      i += 4;
+    }
+    else if (strcmp(argv[i], "-kd") == 0)
+    {
+      // Diffuse color
+      material.kd.r = (float)atof(argv[i + 1]);
+      material.kd.g = (float)atof(argv[i + 2]);
+      material.kd.b = (float)atof(argv[i + 3]);
+      i += 4;
+    }
+    else if (strcmp(argv[i], "-ks") == 0)
+    {
+      // Specular color
+      material.ks.r = (float)atof(argv[i + 1]);
+      material.ks.g = (float)atof(argv[i + 2]);
+      material.ks.b = (float)atof(argv[i + 3]);
+      i += 4;
+    }
+    else if (strcmp(argv[i], "-sp") == 0)
+    {
+      // Specular power
+      material.sp = (float)atof(argv[i + 1]);
+      i += 2;
+    }
+    else if ((strcmp(argv[i], "-pl") == 0) || (strcmp(argv[i], "-dl") == 0))
+    {
+      Light light;
+      // Specular color
+      light.posDir.x = (float)atof(argv[i + 1]);
+      light.posDir.y = (float)atof(argv[i + 2]);
+      light.posDir.z = (float)atof(argv[i + 3]);
+      light.color.r = (float)atof(argv[i + 4]);
+      light.color.g = (float)atof(argv[i + 5]);
+      light.color.b = (float)atof(argv[i + 6]);
+      if (strcmp(argv[i], "-pl") == 0)
+      {
+        // Point
+        light.type = Light::POINT_LIGHT;
+      }
+      else
+      {
+        // Directional
+        light.type = Light::DIRECTIONAL_LIGHT;
+      }
+      lights.push_back(light);
+      i += 7;
+    }
+    else if (strcmp(argv[i], "-mode") == 0)
+    {
+      // Shading Mode
+      if (i + 1 < argc && strcmp(argv[i + 1], "toon") == 0)
+      {
+        shadingMode.type = Shading::TOON;
+      }
+      else
+      {
+        shadingMode.type = Shading::PHONG;
+      }
+      i += 2;
+    }
+  }
 }
 
 //****************************************************
@@ -352,37 +335,37 @@ void parseArguments(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 
-	parseArguments(argc, argv);
+  parseArguments(argc, argv);
 
-	// This initializes glut
-	glutInit(&argc, argv);
+  // This initializes glut
+  glutInit(&argc, argv);
 
-	// This tells glut to use a double-buffered window with red, green, and blue channels
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+  // This tells glut to use a double-buffered window with red, green, and blue channels
+  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
 
-	// Initalize theviewport size
-	viewport.w = 400;
-	viewport.h = 400;
+  // Initalize theviewport size
+  viewport.w = 400;
+  viewport.h = 400;
 
-	// The size and position of the window
-	glutInitWindowSize(viewport.w, viewport.h);
-	glutInitWindowPosition(0, 0);
-	glutCreateWindow(argv[0]);
+  // The size and position of the window
+  glutInitWindowSize(viewport.w, viewport.h);
+  glutInitWindowPosition(0, 0);
+  glutCreateWindow(argv[0]);
 
 // Initialize timer variable
 #ifdef _WIN32
-	lastTime = GetTickCount();
+  lastTime = GetTickCount();
 #else
-	gettimeofday(&lastTime, NULL);
+  gettimeofday(&lastTime, NULL);
 #endif
 
-	initScene(); // quick function to set up scene
+  initScene(); // quick function to set up scene
 
-	glutDisplayFunc(myDisplay); // function to run when its time to draw something
-	glutReshapeFunc(myReshape); // function to run when the window gets resized
-	glutIdleFunc(myFrameMove);
+  glutDisplayFunc(myDisplay); // function to run when its time to draw something
+  glutReshapeFunc(myReshape); // function to run when the window gets resized
+  glutIdleFunc(myFrameMove);
 
-	glutMainLoop(); // infinite loop that will keep drawing and resizing and whatever else
+  glutMainLoop(); // infinite loop that will keep drawing and resizing and whatever else
 
-	return 0;
+  return 0;
 }
