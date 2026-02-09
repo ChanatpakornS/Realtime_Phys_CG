@@ -95,6 +95,9 @@ public:
   Shading() : type(PHONG) {}
 };
 
+// save settings
+char output_file_name[256] = "";
+
 // Material and lights
 Material material;
 vector<Light> lights;
@@ -153,7 +156,6 @@ float toonIntensity(float ldn)
 
 vec3 computeShadedColor(vec3 pos)
 {
-  // TODO: phong here
   vec3 viewDir(0.f, 0.f, 1.f);
   vec3 finalColor(0.f, 0.f, 0.f);
 
@@ -202,6 +204,59 @@ vec3 computeShadedColor(vec3 pos)
 //****************************************************
 // function that does the actual drawing of stuff
 //***************************************************
+void savePPM()
+{
+  ofstream out(output_file_name);
+  if (!out)
+  {
+    cerr << "Error: Could not open " << output_file_name << " for writing." << endl;
+    return;
+  }
+
+  out << "P3\n"
+      << viewport.w << " " << viewport.h << "\n255\n";
+
+  int drawRadius = min(viewport.w, viewport.h) / 2 - 10;
+  float idrawRadius = 1.0f / drawRadius;
+  int drawX = viewport.w / 2;
+  int drawY = viewport.h / 2;
+
+  for (int y = viewport.h - 1; y >= 0; y--)
+  {
+    for (int x = 0; x < viewport.w; x++)
+    {
+      int i = y - drawY;
+      int j = x - drawX;
+
+      vec3 col(0, 0, 0);
+
+      if (i * i + j * j <= drawRadius * drawRadius)
+      {
+        float sx = j * idrawRadius;
+        float sy = i * idrawRadius;
+        float term = 1.0f - sx * sx - sy * sy;
+
+        if (term >= 0)
+        {
+          float sz = sqrtf(term);
+          vec3 pos(sx, sy, sz);
+          col = computeShadedColor(pos);
+        }
+      }
+
+      int r = (int)(min(1.0f, max(0.0f, col.r)) * 255);
+      int g = (int)(min(1.0f, max(0.0f, col.g)) * 255);
+      int b = (int)(min(1.0f, max(0.0f, col.b)) * 255);
+
+      out << r << " " << g << " " << b << " ";
+    }
+    out << "\n";
+  }
+
+  out.close();
+  cout << "Image saved to " << output_file_name << endl;
+}
+
 void myDisplay()
 {
 
@@ -329,6 +384,18 @@ void parseArguments(int argc, char *argv[])
       }
       i += 2;
     }
+    else if (strcmp(argv[i], "-save") == 0)
+    {
+      if (i + 1 < argc)
+      {
+        strncpy(output_file_name, argv[i + 1], 255);
+        i += 2;
+      }
+      else
+      {
+        i++;
+      }
+    }
   }
 }
 
@@ -349,6 +416,13 @@ int main(int argc, char *argv[])
   // Initalize theviewport size
   viewport.w = 400;
   viewport.h = 400;
+
+  // Save then exit 0
+  if (strlen(output_file_name) > 0)
+  {
+    savePPM();
+    return 0;
+  }
 
   // The size and position of the window
   glutInitWindowSize(viewport.w, viewport.h);
